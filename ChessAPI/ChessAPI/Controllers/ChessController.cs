@@ -122,6 +122,7 @@ namespace ChessAPI.Controllers
                 if (IsValidMove(piece.Position, move.Destination, move))
                 {
 
+
                     if (PieceExist(move.Destination))
                     {
 
@@ -304,7 +305,71 @@ namespace ChessAPI.Controllers
             return true;
         }
 
-        
+
+        private bool IsCheck(ChessMove move)
+        {
+            ChessPiece king = _context.ChessPieces.FirstOrDefault(p => p.Id.ToLower().Contains((_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white_king" : "black_king")));
+            if (king == null) return false;
+
+            string kingPosition = king.Position;
+            char kingX = kingPosition[0];
+            int kingY = int.Parse(kingPosition[1].ToString());
+
+            foreach (var piece in _context.ChessPieces)
+            {
+                string[] idParts = piece.Id.Split('_');
+                string color = idParts[0];
+
+                if (color != (_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white" : "black") && IsValidMove(piece.Position, kingPosition, move))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsCheckmate()
+        {
+            if (!IsCheck(new ChessMove())) return false;
+
+            foreach (var piece in _context.ChessPieces)
+            {
+                string[] idParts = piece.Id.Split('_');
+                string color = idParts[0];
+
+                if (color == (_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white" : "black"))
+                {
+                    for (char character = 'a'; character <= 'h'; character++)
+                    {
+                        for (int number = 1; number <= 8; number++)
+                        {
+                            string newPosition = $"{character}{number}";
+
+                            ChessMove move = new ChessMove { OnePiece = piece.Id, Destination = newPosition };
+
+                            if (IsValidMove(piece.Position, newPosition, move))
+                            {
+                                string oldPosition = piece.Position;
+                                piece.Position = newPosition;
+
+                                bool check = IsCheck(move);
+
+                                piece.Position = oldPosition;
+
+                                if (!check) return false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return true;
+        }
+
+
+
+
 
 
     }
@@ -420,73 +485,3 @@ private List<(int, int)> PossibleMoves(ChessItem piece)
     }
 
     */
-
-
-/*
-    public bool IsCheck()
-    {
-        int kingX = -1, kingY = -1;
-        for (int y = 0; y < 8; y++)
-        {
-            for (int x = 0; x < 8; x++)
-            {
-                if (chessBoard[y][x] != null && chessBoard[y][x].NomePezzo.ToLower() == (whiteTurn ? "re" : "re"))
-                {
-                    kingX = x;
-                    kingY = y;
-                    break;
-                }
-            }
-            if (kingX != -1) break;
-        }
-
-        for (int y = 0; y < 8; y++)
-        {
-            for (int x = 0; x < 8; x++)
-            {
-                if (chessBoard[y][x] != null && char.IsUpper(chessBoard[y][x].NomePezzo[0]) != whiteTurn)
-                {
-                    if (IsValidMove(x, y, kingX, kingY)) return true;
-                }
-            }
-        }
-
-        return false;
-    }
-    public bool IsCheckmate()
-    {
-        if (!IsCheck()) return false;
-
-        for (int startY = 0; startY < 8; startY++)
-        {
-            for (int startX = 0; startX < 8; startX++)
-            {
-                if (chessBoard[startY][startX] == null || char.IsUpper(chessBoard[startY][startX].NomePezzo[0]) != whiteTurn) continue;
-
-                for (int endY = 0; endY < 8; endY++)
-                {
-                    for (int endX = 0; endX < 8; endX++)
-                    {
-                        if (IsValidMove(startX, startY, endX, endY))
-                        {
-                            ChessItem piece = chessBoard[startY][startX];
-                            chessBoard[startY][startX] = null;
-                            chessBoard[endY][endX] = piece;
-
-                            bool check = IsCheck();
-
-                            chessBoard[startY][startX] = piece;
-                            chessBoard[endY][endX] = null;
-
-                            if (!check) return false;
-                        }
-                    }
-                }
-            }
-        }
-
-        return true;
-    }
-
-}
-*/
