@@ -134,7 +134,20 @@ namespace ChessAPI.Controllers
                     }
                     piece.Position = move.Destination;
                     game.Turn = game.Turn == "White" ? "Black" : "White";
+
+                    if (IsCheck(new ChessMove()))
+                    {
+                        game.Turn = game.Turn == "White" ? "Black" : "White";
+                        return BadRequest("The move puts your king in check.");
+                    }
+
+                    if (IsCheckmate())
+                    {
+                        return BadRequest("The move results in checkmate.");
+                    }
+
                 }
+
             }
 
 
@@ -265,7 +278,7 @@ namespace ChessAPI.Controllers
                 string[] idParts = piece.Id.Split('_');
                 string color = idParts[0];
                 string name = idParts[1];
-                string number = idParts[2];
+                string number = idParts.Length > 2 ? idParts[2] : null;
 
 
                 switch (name.ToLower())
@@ -317,8 +330,7 @@ namespace ChessAPI.Controllers
 
             foreach (var piece in _context.ChessPieces)
             {
-                string[] idParts = piece.Id.Split('_');
-                string color = idParts[0];
+                string color = piece.Id.Split('_')[0];
 
                 if (color != (_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white" : "black") && IsValidMove(piece.Position, kingPosition, move))
                 {
@@ -328,6 +340,7 @@ namespace ChessAPI.Controllers
 
             return false;
         }
+
 
         private bool IsCheckmate()
         {
