@@ -13,6 +13,8 @@ namespace ChessAPI.ChessModel
         public string? Name { get; set; }
         public string? ImageUrl { get; set; }
         public string? Position { get; set; }
+        public bool IsFirstMove { get; set; } = true;
+
     }
 
     public class ChessGame

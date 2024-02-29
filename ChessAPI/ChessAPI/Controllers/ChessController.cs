@@ -220,7 +220,6 @@ namespace ChessAPI.Controllers
         }
 
 
-
         private void EatPiece(ChessPiece piece)
         {
             if (PieceExist(piece.Position))
@@ -273,31 +272,18 @@ namespace ChessAPI.Controllers
                     case "pawn":
                         if (color == "white")
                         {
-                            if (endY - startY != 1 || Math.Abs(endX - startX) > 1) return false;
-                            if (Math.Abs(endX - startX) == 1 && !PieceExist(move.Destination)) return false;
-                            if (PieceExist(move.Destination))
-                            {
-                                var pieceToEat = _context.ChessPieces.FirstOrDefault(p => p.Position == move.Destination);
-                                if (pieceToEat != null)
-                                {
-                                    EatPiece(pieceToEat);
-                                }
-                            }
+                            if (piece.IsFirstMove && endY - startY == 2 && startX == endX && !PieceExist(((char)(startX + 'a' - 1)).ToString() + (startY + 1)) && !PieceExist(move.Destination)) return true;
+                            if (endY - startY != 1 || startX != endX || PieceExist(move.Destination)) return false;
+                            if (endY - startY == 1 && Math.Abs(endX - startX) == 1 && !PieceExist(move.Destination)) return false;
                         }
-                        if (color == "black")
+                        else if (color == "black")
                         {
-                            if (startY - endY != 1 || Math.Abs(endX - startX) > 1) return false;
-                            if (Math.Abs(endX - startX) == 1 && !PieceExist(move.Destination)) return false;
-                            if (PieceExist(move.Destination))
-                            {
-                                var pieceToEat = _context.ChessPieces.FirstOrDefault(p => p.Position == move.Destination);
-                                if (pieceToEat != null)
-                                {
-                                    EatPiece(pieceToEat);
-                                }
-                            }
+                            if (piece.IsFirstMove && startY - endY == 2 && startX == endX && !PieceExist(((char)(startX + 'a' - 1)).ToString() + (startY - 1)) && !PieceExist(move.Destination)) return true;
+                            if (startY - endY != 1 || startX != endX || PieceExist(move.Destination)) return false;
+                            if (startY - endY == 1 && Math.Abs(endX - startX) == 1 && !PieceExist(move.Destination)) return false;
                         }
                         break;
+
                     case "rook":
                         if (startX != endX && startY != endY) return false;
                         break;
@@ -318,14 +304,7 @@ namespace ChessAPI.Controllers
             return true;
         }
 
-        private bool FirstMove()
-        {
-
-
-
-
-
-        }
+        
 
 
     }
@@ -342,7 +321,7 @@ namespace ChessAPI.Controllers
 
 
 
-}
+
 
 /*
 private List<(int, int)> PossibleMoves(ChessItem piece)
