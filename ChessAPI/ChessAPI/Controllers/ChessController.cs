@@ -371,6 +371,13 @@ namespace ChessAPI.Controllers
 
         private bool IsCheckmate()
         {
+            var game = _context.ChessGames.FirstOrDefault();
+
+            if (game == null)
+            {
+                return false;
+            }
+
             if (IsCheck(new ChessMove()))
             {
                 game.GameState = "Check";
@@ -386,11 +393,33 @@ namespace ChessAPI.Controllers
 
             _context.SaveChanges();
 
+            return game.GameState == "Checkmate";
         }
 
 
-
-
+        private void PromotePawn(ChessPiece pawn, string newPiece)
+        {
+            if ((pawn.Name.ToLower() == "pawn" && pawn.Id.StartsWith("white") && pawn.Position[1] == '8') ||
+                (pawn.Name.ToLower() == "pawn" && pawn.Id.StartsWith("black") && pawn.Position[1] == '1'))
+            {
+                if (newPiece.ToLower() == "queen" || newPiece.ToLower() == "rook" ||
+                    newPiece.ToLower() == "bishop" || newPiece.ToLower() == "knight")
+                {
+                    string[] idParts = pawn.Id.Split('_');
+                    string color = idParts[0];
+                    pawn.Name = newPiece;
+                    pawn.Id = $"{color}_{newPiece}_{idParts[2]}";
+                }
+                else
+                {
+                    throw new ArgumentException("Invalid piece for promotion. Must be queen, rook, bishop, or knight.");
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("Pawn must be on the opposite side of the board to be promoted.");
+            }
+        }
 
 
     }
