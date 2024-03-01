@@ -21,7 +21,7 @@ namespace ChessAPI.Controllers
 
         // POST: api/chess/Start
         [HttpPost("Start")]
-        public ActionResult<ChessGame> StartGame()
+        public async Task<ActionResult<ChessGame>> StartGame()
         {
             var game = new ChessGame
             {
@@ -71,33 +71,39 @@ namespace ChessAPI.Controllers
 
             };
 
-            _context.ChessGames.AddAsync(game);
-            _context.SaveChangesAsync();
+            await _context.ChessGames.AddAsync(game);
+            await _context.SaveChangesAsync();
+
             return game;
 
         }
 
         // GET: api/chess/games/1
-        [HttpGet("games/{id}")]
-        public ActionResult<ChessGame> GetGame([Required] int id)
+        [HttpGet("games/{gameId}")]
+        public ActionResult<ChessGame> GetGame([Required] int gameId)
         {
-            var game = _context.ChessGames.Include(g => g.Pieces).FirstOrDefault(g => g.Id == id);
+            var game = _context.ChessGames.Include(g => g.Pieces).FirstOrDefault(g => g.GameId == gameId);
+            var pieces = _context.ChessPieces.ToList();
 
             if (game == null)
             {
                 return NotFound();
             }
 
+            int chessGameId = game.GameId;
+
             return game;
         }
 
 
+
         //PATCH: api/chess/games/1/
-        [HttpPatch("games/{id}")]
-        public IActionResult PatchGame(int id, [FromBody] ChessMove move)
+        [HttpPatch("games/{gameId}")]
+        public IActionResult PatchGame(int gameId, [FromBody] ChessMove move)
         {
 
-            var game = _context.ChessGames.Include(g => g.Pieces).FirstOrDefault(g => g.Id == id);
+            var game = _context.ChessGames.Include(g => g.Pieces).FirstOrDefault(g => g.GameId == gameId);
+            var pieces = _context.ChessPieces.ToList();
             if (game == null)
             {
                 return NotFound();
@@ -119,17 +125,17 @@ namespace ChessAPI.Controllers
 
             if (game.Turn.ToLower() == color)
             {
-                if (IsValidMove(piece.Position, move.Destination, move))
+                if (IsValidMove(piece.Position, move.Destination, move, gameId))
                 {
 
 
-                    if (PieceExist(move.Destination))
+                    if (PieceExist(move.Destination, gameId))
                     {
 
-                        var pieceToEat = _context.ChessPieces.FirstOrDefault(p => p.Position == move.Destination);
+                        var pieceToEat = game.Pieces.FirstOrDefault(p => p.Position == move.Destination);
                         if (pieceToEat != null)
                         {
-                            EatPiece(pieceToEat);
+                            EatPiece(pieceToEat, gameId);
                         }
                     }
 
@@ -144,16 +150,21 @@ namespace ChessAPI.Controllers
                     piece.Position = move.Destination;
                     game.Turn = game.Turn == "White" ? "Black" : "White";
 
-                    if (IsCheck())
+                    /*
+                    if (IsCheck(gameId))
                     {
-                        game.Turn = game.Turn == "White" ? "Black" : "White";
-                        return BadRequest("The move puts your king in check.");
+                        if (IsCheckmate(gameId))
+                        {
+                            return BadRequest("The move results in checkmate.");
+                        }
+                        else
+                        {
+                            game.Turn = game.Turn == "White" ? "Black" : "White";
+                            return BadRequest("The move puts your king in check.");
+                        }
                     }
+                    */
 
-                    if (IsCheckmate())
-                    {
-                        return BadRequest("The move results in checkmate.");
-                    }
 
                 }
 
@@ -165,7 +176,7 @@ namespace ChessAPI.Controllers
 
             var response = new
             {
-                id = game.Id,
+                id = game.GameId,
                 turn = game.Turn,
                 pieces = game.Pieces.Select(p => new
                 {
@@ -202,7 +213,7 @@ namespace ChessAPI.Controllers
 
 
         //PATCH metods
-        private bool PieceExist(string position)
+        private bool PieceExist(string position, int gameId)
         {
             bool exsist = false;
             position = position.ToLower();
@@ -230,42 +241,41 @@ namespace ChessAPI.Controllers
             }
 
 
+            var game = _context.ChessGames.Include(g => g.Pieces).FirstOrDefault(g => g.GameId == gameId);
+            if (game == null)
+            {
+                throw new ArgumentException($"No game found with ID {gameId}.", nameof(gameId));
+            }
 
-            ChessPiece? piece = _context.ChessPieces.FirstOrDefault(p => p.Position == position);
+            var piece = game.Pieces.FirstOrDefault(p => p.Position == position);
 
             if (piece != null)
             {
-
                 exsist = true;
-
             }
             return exsist;
         }
 
 
-        private void EatPiece(ChessPiece piece)
+        private void EatPiece(ChessPiece piece, int gameId)
         {
-            if (PieceExist(piece.Position))
+            if (PieceExist(piece.Position, gameId))
             {
-
                 var foundPiece = _context.ChessPieces.FirstOrDefault(p => p.Position == piece.Position);
 
                 if (foundPiece != null)
                 {
                     _context.ChessPieces.Remove(foundPiece);
                     _context.SaveChanges();
-
                 }
-
-
             }
-
         }
 
 
-        private bool IsValidMove(string position, string destination, ChessMove move)
+
+        private bool IsValidMove(string position, string destination, ChessMove move, int gameId)
         {
-            if (!PieceExist(position))
+            if (!PieceExist(position, gameId))
             {
                 return false;
             }
@@ -295,18 +305,17 @@ namespace ChessAPI.Controllers
                     case "pawn":
                         if (color == "white")
                         {
-                            if (piece.IsFirstMove && endY - startY == 2 && startX == endX && !PieceExist(((char)(startX + 'a' - 1)).ToString() + (startY + 1)) && !PieceExist(move.Destination)) return true;
-                            if (endY - startY != 1 || startX != endX || PieceExist(move.Destination)) return false;
-                            if (endY - startY == 1 && Math.Abs(endX - startX) == 1 && !PieceExist(move.Destination)) return false;
+                            if (piece.IsFirstMove && endY - startY == 2 && startX == endX && !PieceExist(((char)(startX + 'a' - 1)).ToString() + (startY + 1), gameId) && !PieceExist(move.Destination, gameId)) return true;
+                            if (endY - startY != 1 || startX != endX || PieceExist(move.Destination, gameId)) return false;
+                            if (endY - startY == 1 && Math.Abs(endX - startX) == 1 && !PieceExist(move.Destination, gameId)) return false;
                         }
                         else if (color == "black")
                         {
-                            if (piece.IsFirstMove && startY - endY == 2 && startX == endX && !PieceExist(((char)(startX + 'a' - 1)).ToString() + (startY - 1)) && !PieceExist(move.Destination)) return true;
-                            if (startY - endY != 1 || startX != endX || PieceExist(move.Destination)) return false;
-                            if (startY - endY == 1 && Math.Abs(endX - startX) == 1 && !PieceExist(move.Destination)) return false;
+                            if (piece.IsFirstMove && startY - endY == 2 && startX == endX && !PieceExist(((char)(startX + 'a' - 1)).ToString() + (startY - 1), gameId) && !PieceExist(move.Destination, gameId)) return true;
+                            if (startY - endY != 1 || startX != endX || PieceExist(move.Destination, gameId)) return false;
+                            if (startY - endY == 1 && Math.Abs(endX - startX) == 1 && !PieceExist(move.Destination, gameId)) return false;
                         }
                         break;
-
                     case "rook":
                         if (startX != endX && startY != endY) return false;
                         break;
@@ -327,10 +336,10 @@ namespace ChessAPI.Controllers
             return true;
         }
 
-
-        private bool IsCheck()
+        /*
+        private bool IsCheck(int gameId)
         {
-            ChessPiece king = _context.ChessPieces.FirstOrDefault(p => p.Id.ToLower().Contains((_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white_king" : "black_king")));
+            ChessPiece king = _context.ChessPieces.FirstOrDefault(p => p.Id.ToLower().Contains((_context.ChessGames.FirstOrDefault(g => g.GameId == gameId).Turn.ToLower() == "white" ? "white_king" : "black_king")));
 
             string kingPosition = king.Position;
 
@@ -338,9 +347,9 @@ namespace ChessAPI.Controllers
             {
                 string color = piece.Id.Split('_')[0];
 
-                if (color != (_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white" : "black"))
+                if (color != (_context.ChessGames.FirstOrDefault(g => g.GameId == gameId).Turn.ToLower() == "white" ? "white" : "black"))
                 {
-                    if (IsValidMove(piece.Position, kingPosition, new ChessMove { OnePiece = piece.Id, Destination = kingPosition }))
+                    if (IsValidMove(piece.Position, kingPosition, new ChessMove { OnePiece = piece.Id, Destination = kingPosition }, gameId))
                     {
                         return true;
                     }
@@ -351,18 +360,16 @@ namespace ChessAPI.Controllers
         }
 
 
-
-
-        private bool IsCheckmate()
+        private bool IsCheckmate(int gameId)
         {
-            var gameStatus = _context.ChessGames.FirstOrDefault();
+            var gameStatus = _context.ChessGames.FirstOrDefault(g => g.GameId == gameId);
 
             if (gameStatus == null)
             {
                 return false;
             }
 
-            if (IsCheck())
+            if (IsCheck(gameId))
             {
                 gameStatus.GameState = "Check";
 
@@ -371,7 +378,7 @@ namespace ChessAPI.Controllers
                     string[] idParts = piece.Id.Split('_');
                     string color = idParts[0];
 
-                    if (color == (_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white" : "black"))
+                    if (color == (_context.ChessGames.FirstOrDefault(g => g.GameId == gameId).Turn.ToLower() == "white" ? "white" : "black"))
                     {
                         for (char character = 'a'; character <= 'h'; character++)
                         {
@@ -381,12 +388,12 @@ namespace ChessAPI.Controllers
 
                                 ChessMove simulatedMove = new ChessMove { OnePiece = piece.Id, Destination = newPosition };
 
-                                if (IsValidMove(piece.Position, newPosition, simulatedMove))
+                                if (IsValidMove(piece.Position, newPosition, simulatedMove, gameId))
                                 {
                                     string oldPosition = piece.Position;
                                     piece.Position = newPosition;
 
-                                    bool check = IsCheck();
+                                    bool check = IsCheck(gameId);
 
                                     piece.Position = oldPosition;
 
@@ -413,6 +420,8 @@ namespace ChessAPI.Controllers
 
             return gameStatus.GameState == "Checkmate";
         }
+
+        */
 
 
 

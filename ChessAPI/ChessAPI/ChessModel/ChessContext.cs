@@ -9,8 +9,8 @@ namespace ChessAPI.ChessModel
         {
         }
 
-        public DbSet<ChessPiece> ChessPieces { get; set; } = null!;
-        public DbSet<ChessGame> ChessGames { get; set; } = null!;
+        public DbSet<ChessPiece> ChessPieces { get; set; }
+        public DbSet<ChessGame> ChessGames { get; set; }
 
     }
 }
