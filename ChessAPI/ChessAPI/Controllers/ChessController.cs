@@ -322,7 +322,6 @@ namespace ChessAPI.Controllers
         private bool IsCheck(ChessMove move)
         {
             ChessPiece king = _context.ChessPieces.FirstOrDefault(p => p.Id.ToLower().Contains((_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white_king" : "black_king")));
-            if (king == null) return false;
 
             string kingPosition = king.Position;
             char kingX = kingPosition[0];
@@ -332,26 +331,14 @@ namespace ChessAPI.Controllers
             {
                 string color = piece.Id.Split('_')[0];
 
-                if (color != (_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white" : "black") && IsValidMove(piece.Position, kingPosition, move))
+                if (color != (_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white" : "black"))
                 {
-                    return true;
+                    if (IsValidMove(piece.Position, kingPosition, move))
+                    {
+                        return true;
+                    }
                 }
-            }
-
-            return false;
-        }
-
-
-        private bool IsCheckmate()
-        {
-            if (!IsCheck(new ChessMove())) return false;
-
-            foreach (var piece in _context.ChessPieces)
-            {
-                string[] idParts = piece.Id.Split('_');
-                string color = idParts[0];
-
-                if (color == (_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white" : "black"))
+                else
                 {
                     for (char character = 'a'; character <= 'h'; character++)
                     {
@@ -359,14 +346,14 @@ namespace ChessAPI.Controllers
                         {
                             string newPosition = $"{character}{number}";
 
-                            ChessMove move = new ChessMove { OnePiece = piece.Id, Destination = newPosition };
+                            ChessMove simulatedMove = new ChessMove { OnePiece = piece.Id, Destination = newPosition };
 
-                            if (IsValidMove(piece.Position, newPosition, move))
+                            if (IsValidMove(piece.Position, newPosition, simulatedMove))
                             {
                                 string oldPosition = piece.Position;
                                 piece.Position = newPosition;
 
-                                bool check = IsCheck(move);
+                                bool check = IsCheck(simulatedMove);
 
                                 piece.Position = oldPosition;
 
@@ -377,7 +364,28 @@ namespace ChessAPI.Controllers
                 }
             }
 
-            return true;
+            return false;
+        }
+
+
+
+        private bool IsCheckmate()
+        {
+            if (IsCheck(new ChessMove()))
+            {
+                game.GameState = "Check";
+                if (IsCheckmate())
+                {
+                    game.GameState = "Checkmate";
+                }
+            }
+            else
+            {
+                game.GameState = "Normal";
+            }
+
+            _context.SaveChanges();
+
         }
 
 
@@ -387,114 +395,3 @@ namespace ChessAPI.Controllers
 
     }
 }
-
-    
-
-
-
-    
-
-
-
-
-
-
-
-
-/*
-private List<(int, int)> PossibleMoves(ChessItem piece)
-    {
-        List<(int, int)> moves = new List<(int, int)>();
-        int currentX = piece.StartX[0];
-        int currentY = piece.StartY[0];
-
-        string nomePezzo = piece.NomePezzo.ToLower();
-        if (nomePezzo == "pedone")
-        {
-            if (piece.Turno == false)
-            {
-                moves.Add((currentX + 1, currentY));
-            }
-            else
-            {
-                moves.Add((currentX - 1, currentY));
-            }
-        }
-        else if (nomePezzo == "torre")
-        {
-            for (int i = 0; i < 8; i++)
-            {
-                moves.Add((currentX, i));
-                moves.Add((i, currentY));
-            }
-        }
-        else if (nomePezzo == "cavallo")
-        {
-            int[] dx = { -2, -2, -1, -1, 1, 1, 2, 2 };
-            int[] dy = { -1, 1, -2, 2, -2, 2, -1, 1 };
-            for (int i = 0; i < 8; i++)
-            {
-                int newX = currentX + dx[i];
-                int newY = currentY + dy[i];
-                if (newX >= 0 && newX < 8 && newY >= 0 && newY < 8)
-                {
-                    moves.Add((newX, newY));
-                }
-            }
-        }
-        else if (nomePezzo == "alfiere")
-        {
-            for (int i = -7; i <= 7; i++)
-            {
-                if (currentX + i >= 0 && currentX + i < 8 && currentY + i >= 0 && currentY + i < 8)
-                {
-                    moves.Add((currentX + i, currentY + i));
-                }
-                if (currentX + i >= 0 && currentX + i < 8 && currentY - i >= 0 && currentY - i < 8)
-                {
-                    moves.Add((currentX + i, currentY - i));
-                }
-            }
-        }
-        else if (nomePezzo == "regina")
-        {
-            for (int i = 0; i < 8; i++)
-            {
-                moves.Add((currentX, i));
-                moves.Add((i, currentY));
-            }
-            for (int i = -7; i <= 7; i++)
-            {
-                if (currentX + i >= 0 && currentX + i < 8 && currentY + i >= 0 && currentY + i < 8)
-                {
-                    moves.Add((currentX + i, currentY + i));
-                }
-                if (currentX + i >= 0 && currentX + i < 8 && currentY - i >= 0 && currentY - i < 8)
-                {
-                    moves.Add((currentX + i, currentY - i));
-                }
-            }
-        }
-        else if (nomePezzo == "re")
-        {
-            for (int dx = -1; dx <= 1; dx++)
-            {
-                for (int dy = -1; dy <= 1; dy++)
-                {
-                    if (dx != 0 || dy != 0)
-                    {
-                        int newX = currentX + dx;
-                        int newY = currentY + dy;
-                        if (newX >= 0 && newX < 8 && newY >= 0 && newY < 8)
-                        {
-                            moves.Add((newX, newY));
-                        }
-                    }
-                }
-            }
-        }
-
-        return moves;
-    }
-
-    */

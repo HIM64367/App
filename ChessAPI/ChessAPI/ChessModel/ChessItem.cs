@@ -22,8 +22,9 @@ namespace ChessAPI.ChessModel
         public int Id { get; set; }
         public string? Turn { get; set; }
         public List<ChessPiece>? Pieces { get; set; }
-
+        public string GameState { get; set; } = "Normal";
     }
+
 
     public class ChessMove
     {
