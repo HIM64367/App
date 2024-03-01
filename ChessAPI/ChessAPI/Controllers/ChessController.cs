@@ -132,10 +132,19 @@ namespace ChessAPI.Controllers
                             EatPiece(pieceToEat);
                         }
                     }
+
+                    if (piece.Name.ToLower() == "pawn" &&
+                    ((piece.Id.StartsWith("white") && piece.Position[1] == '8') ||
+                    (piece.Id.StartsWith("black") && piece.Position[1] == '1')))
+                    {
+                        PromotePawn(piece, "queen");
+                    }
+
+
                     piece.Position = move.Destination;
                     game.Turn = game.Turn == "White" ? "Black" : "White";
 
-                    if (IsCheck(new ChessMove()))
+                    if (IsCheck())
                     {
                         game.Turn = game.Turn == "White" ? "Black" : "White";
                         return BadRequest("The move puts your king in check.");
@@ -319,13 +328,11 @@ namespace ChessAPI.Controllers
         }
 
 
-        private bool IsCheck(ChessMove move)
+        private bool IsCheck()
         {
             ChessPiece king = _context.ChessPieces.FirstOrDefault(p => p.Id.ToLower().Contains((_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white_king" : "black_king")));
 
             string kingPosition = king.Position;
-            char kingX = kingPosition[0];
-            int kingY = int.Parse(kingPosition[1].ToString());
 
             foreach (var piece in _context.ChessPieces)
             {
@@ -333,33 +340,9 @@ namespace ChessAPI.Controllers
 
                 if (color != (_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white" : "black"))
                 {
-                    if (IsValidMove(piece.Position, kingPosition, move))
+                    if (IsValidMove(piece.Position, kingPosition, new ChessMove { OnePiece = piece.Id, Destination = kingPosition }))
                     {
                         return true;
-                    }
-                }
-                else
-                {
-                    for (char character = 'a'; character <= 'h'; character++)
-                    {
-                        for (int number = 1; number <= 8; number++)
-                        {
-                            string newPosition = $"{character}{number}";
-
-                            ChessMove simulatedMove = new ChessMove { OnePiece = piece.Id, Destination = newPosition };
-
-                            if (IsValidMove(piece.Position, newPosition, simulatedMove))
-                            {
-                                string oldPosition = piece.Position;
-                                piece.Position = newPosition;
-
-                                bool check = IsCheck(simulatedMove);
-
-                                piece.Position = oldPosition;
-
-                                if (!check) return false;
-                            }
-                        }
                     }
                 }
             }
@@ -369,32 +352,68 @@ namespace ChessAPI.Controllers
 
 
 
+
         private bool IsCheckmate()
         {
-            var game = _context.ChessGames.FirstOrDefault();
+            var gameStatus = _context.ChessGames.FirstOrDefault();
 
-            if (game == null)
+            if (gameStatus == null)
             {
                 return false;
             }
 
-            if (IsCheck(new ChessMove()))
+            if (IsCheck())
             {
-                game.GameState = "Check";
-                if (IsCheckmate())
+                gameStatus.GameState = "Check";
+
+                foreach (var piece in _context.ChessPieces)
                 {
-                    game.GameState = "Checkmate";
+                    string[] idParts = piece.Id.Split('_');
+                    string color = idParts[0];
+
+                    if (color == (_context.ChessGames.FirstOrDefault().Turn.ToLower() == "white" ? "white" : "black"))
+                    {
+                        for (char character = 'a'; character <= 'h'; character++)
+                        {
+                            for (int number = 1; number <= 8; number++)
+                            {
+                                string newPosition = $"{character}{number}";
+
+                                ChessMove simulatedMove = new ChessMove { OnePiece = piece.Id, Destination = newPosition };
+
+                                if (IsValidMove(piece.Position, newPosition, simulatedMove))
+                                {
+                                    string oldPosition = piece.Position;
+                                    piece.Position = newPosition;
+
+                                    bool check = IsCheck();
+
+                                    piece.Position = oldPosition;
+
+                                    if (!check)
+                                    {
+                                        gameStatus.GameState = "Normal";
+                                        _context.SaveChanges();
+                                        return false;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+
+                gameStatus.GameState = "Checkmate";
             }
             else
             {
-                game.GameState = "Normal";
+                gameStatus.GameState = "Normal";
             }
 
             _context.SaveChanges();
 
-            return game.GameState == "Checkmate";
+            return gameStatus.GameState == "Checkmate";
         }
+
 
 
         private void PromotePawn(ChessPiece pawn, string newPiece)
